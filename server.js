@@ -517,20 +517,20 @@ app.post('/api/admin/withdrawals/:id/approve', requireAdminAuth, async (req, res
 });
 
 app.post('/api/admin/withdrawals/:id/deny', requireAdminAuth, async (req, res) => {
-  const { id } = req.params;
-  try {
-    console.log(`Denying withdrawal ${id} via proxy to main backend`);
-    
-    const axiosRes = await axios.put(
-      `${MAIN_BACKEND_URL}/api/withdrawals/${id}/status`,
-      { status: "rejected" },
-      {
-        headers: { 
-          'x-admin-token': process.env.ADMIN_API_TOKEN,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
+  const { id } = req.params;
+  try {
+    console.log(`Denying withdrawal ${id} via proxy to main backend`);
+    
+    const axiosRes = await axios.post(
+      `${MAIN_BACKEND_URL}/api/withdrawals/${id}/status`,
+      { status: "rejected" },
+      {
+        headers: { 
+          'x-admin-token': process.env.ADMIN_API_TOKEN,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
     
     console.log(`Withdrawal ${id} denied successfully`);
     res.status(axiosRes.status).json(axiosRes.data);
