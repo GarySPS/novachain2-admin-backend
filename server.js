@@ -567,7 +567,6 @@ app.post('/api/admin/add-balance', requireAdminAuth, async (req, res) => {
 
 // === Manual Balance Reduce ===
 app.post('/api/admin/user/:id/reduce-balance', requireAdminAuth, async (req, res) => {
-Read-only
   const { id } = req.params;
   const { coin, amount } = req.body;
   if (!id || !coin || !amount || isNaN(amount)) {
