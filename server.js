@@ -483,20 +483,20 @@ app.post('/api/admin/deposits/:id/deny', requireAdminAuth, async (req, res) => {
 
 // === WITHDRAWAL APPROVAL ROUTES (ADD THESE) ===
 app.post('/api/admin/withdrawals/:id/approve', requireAdminAuth, async (req, res) => {
-  const { id } = req.params;
-  try {
-    console.log(`Approving withdrawal ${id} via proxy to main backend`);
-    
-    const axiosRes = await axios.put(
-      `${MAIN_BACKEND_URL}/api/withdrawals/${id}/status`,
-      { status: "approved" },
-      {
-        headers: { 
-          'x-admin-token': process.env.ADMIN_API_TOKEN,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
+  const { id } = req.params;
+  try {
+    console.log(`Approving withdrawal ${id} via proxy to main backend`);
+    
+    const axiosRes = await axios.post(
+      `${MAIN_BACKEND_URL}/api/withdrawals/${id}/status`,
+      { status: "approved" },
+      {
+        headers: { 
+          'x-admin-token': process.env.ADMIN_API_TOKEN,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
     
     console.log(`Withdrawal ${id} approved successfully`);
     res.status(axiosRes.status).json(axiosRes.data);
