@@ -10,7 +10,7 @@ const bcrypt = require('bcrypt');
 const pool = require('./db');
 const path = require('path');
 const multer = require('multer');
-const upload = multer({ dest: path.join(__dirname, '../../novachain2-backend/uploads') });
+const upload = multer({ dest: path.join(__dirname, 'uploads') });
 
 const app = express();
 const PORT = 5001;
@@ -50,7 +50,6 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(express.json());
-app.use('/uploads', express.static(path.join(__dirname, '../../novachain-backend/uploads')));
 
 // ===== NEW: Seed Admin Users from .env into DB =====
 const seedAdmins = async () => {
