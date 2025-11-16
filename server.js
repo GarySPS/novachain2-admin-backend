@@ -286,7 +286,6 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
 `);
 
     const users = usersResult.rows;
-
     // Get all balances (frozen is in user_balances!)
     const balancesResult = await pool.query(`
       SELECT user_id, coin, balance, frozen FROM user_balances
