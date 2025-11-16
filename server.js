@@ -10,7 +10,7 @@ const bcrypt = require('bcrypt');
 const pool = require('./db');
 const path = require('path');
 const multer = require('multer');
-const upload = multer({ dest: path.join(__dirname, '../../novachain-backend/uploads') });
+const upload = multer({ dest: path.join(__dirname, '../../novachain2-backend/uploads') });
 
 const app = express();
 const PORT = 5001;
@@ -21,7 +21,7 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'SuperSecret123';
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 const BCRYPT_ROUNDS = 10;
 
-const MAIN_BACKEND_URL = 'https://novachain-backend.onrender.com';
+const MAIN_BACKEND_URL = 'https://novachain2-backend.onrender.com';
 
 const userAutoWin = {};
 let AUTO_WINNING = true;
