@@ -493,7 +493,7 @@ app.post('/api/admin/withdrawals/:id/deny', requireAdminAuth, async (req, res) =
   } catch (err) {
     console.error("WITHDRAW DENY PROXY ERROR:", err.response?.data || err.message);
     res.status(err.response?.status || 500).json({
-    s   message: 'Failed to deny withdrawal',
+        message: 'Failed to deny withdrawal',
         detail: err.response?.data?.message || err.message
     });
   }
