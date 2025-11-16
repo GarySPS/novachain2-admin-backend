@@ -9,13 +9,9 @@ console.log("LOADED ADMIN_PASSWORD:", process.env.ADMIN_PASSWORD);
 const bcrypt = require('bcrypt');
 const pool = require('./db');
 const path = require('path');
-const multer = require('multer');
-const upload = multer({ dest: path.join(__dirname, 'uploads') });
 
 const app = express();
 const PORT = 5001;
-const fs = require('fs');
-const FormData = require('form-data');
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@novachain.com';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'SuperSecret123';
@@ -224,61 +220,32 @@ app.post(
   '/api/admin/deposit-addresses',
   requireAdminAuth,
   requireSuperAdmin, // <-- superadmin only!
-  upload.any(), // <-- Multer saves files temporarily
+  // We removed upload.any() because we are now sending JSON
   async (req, res) => {
     try {
-      const form = new FormData();
+      // req.body is now simple JSON (an array) sent from the frontend
+      const payload = req.body;
 
-      // Append text fields from req.body
-      for (const key in req.body) {
-        form.append(key, req.body[key]);
-      }
-
-      // Append files from req.files
-      if (req.files && req.files.length > 0) {
-        for (const file of req.files) {
-          // Create a read stream from the temporarily uploaded file path
-          form.append(file.fieldname, fs.createReadStream(file.path), file.originalname);
-        }
-      }
-
-      // Proxy the request to the main backend
+      // Proxy the JSON request to the main backend
       const axiosRes = await axios.post(
-        `${MAIN_BACKEND_URL}/api/admin/deposit-addresses`, // <-- PROXY
-        form,
+        `${MAIN_BACKEND_URL}/api/admin/deposit-addresses`, 
+        payload, // Send the JSON payload directly
         {
           headers: {
-            ...form.getHeaders(), // <-- Important for FormData
-            'x-admin-token': process.env.ADMIN_API_TOKEN // <-- Auth with main backend
+            'Content-Type': 'application/json', // Tell the main backend it's JSON
+            'x-admin-token': process.env.ADMIN_API_TOKEN 
           }
         }
       );
-      
-      // Cleanup temp files
-      if (req.files && req.files.length > 0) {
-        for (const file of req.files) {
-          fs.unlink(file.path, (err) => { // Delete temp file
-            if(err) console.error("Error deleting temp file:", file.path, err);
-          });
-        }
-      }
-
+      
       // Send response from main backend back to admin frontend
       res.status(axiosRes.status).json(axiosRes.data);
 
     } catch (err) {
-      // Cleanup temp files even on error
-      if (req.files && req.files.length > 0) {
-        for (const file of req.files) {
-          fs.unlink(file.path, (e) => {
-            if(e) console.error("Error deleting temp file (on error):", file.path, e);
-          });
-        }
-      }
-      console.error("DEPOSIT PROXY ERROR:", err.response?.data || err.message);
-      res.status(err.response?.status || 500).json({ 
-        message: "Failed to proxy deposit settings", 
-        detail: err.response?.data?.message || err.message 
+      console.error("DEPOSIT PROXY ERROR (JSON):", err.response?.data || err.message);
+      res.status(err.response?.status || 500).json({ 
+        message: "Failed to proxy deposit settings", 
+        detail: err.response?.data?.message || err.message 
       });
     }
   }
