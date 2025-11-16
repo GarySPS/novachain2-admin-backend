@@ -413,11 +413,32 @@ app.post('/api/admin/update-trade', requireAdminAuth, async (req, res) => {
 });
 
 // Approve/deny deposit/withdrawal (PROXIED to main backend)
-app.post('/api/admin/deposits/:id/deny', requireAdminAuth, async (req, res) => {
+app.post('/api/admin/deposits/:id/approve', requireAdminAuth, async (req, res) => {
   const { id } = req.params;
   try {
     // Proxy this request to the MAIN backend
-    const axiosRes = await axios.put(  // <-- CHANGE POST TO PUT
+    const axiosRes = await axios.put(
+      `${MAIN_BACKEND_URL}/api/deposits/${id}/status`,
+      { status: "approved" },
+      {
+        headers: { 'x-admin-token': process.env.ADMIN_API_TOKEN }
+      }
+    );
+    res.status(axiosRes.status).json(axiosRes.data);
+  } catch (err) {
+    console.error("DEPOSIT APPROVE PROXY ERROR:", err.response?.data || err.message);
+    res.status(err.response?.status || 500).json({
+      message: 'Failed to approve deposit',
+      detail: err.response?.data?.message || err.message
+    });
+  }
+});
+
+app.post('/api/admin/deposits/:id/deny', requireAdminAuth, async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Proxy this request to the MAIN backend - CHANGE POST TO PUT
+    const axiosRes = await axios.put(
       `${MAIN_BACKEND_URL}/api/deposits/${id}/status`,
       { status: "rejected" },
       {
@@ -434,67 +455,46 @@ app.post('/api/admin/deposits/:id/deny', requireAdminAuth, async (req, res) => {
   }
 });
 
-app.post('/api/admin/deposits/:id/deny', requireAdminAuth, async (req, res) => {
-  const { id } = req.params;
-  try {
-    // Proxy this request to the MAIN backend
-    const axiosRes = await axios.post(
-      `${MAIN_BACKEND_URL}/api/deposits/${id}/status`,
-      { status: "rejected" }, // Send the status in the body
-      {
-        headers: { 'x-admin-token': process.env.ADMIN_API_TOKEN }
-      }
-    );
-    res.status(axiosRes.status).json(axiosRes.data);
-  } catch (err) {
-    console.error("DEPOSIT DENY PROXY ERROR:", err.response?.data || err.message);
-    res.status(err.response?.status || 500).json({
-      message: 'Failed to deny deposit',
-      detail: err.response?.data?.message || err.message
-    });
-  }
-});
-
 app.post('/api/admin/withdrawals/:id/approve', requireAdminAuth, async (req, res) => {
-  const { id } = req.params;
-  try {
-    // Proxy this request to the MAIN backend
-    const axiosRes = await axios.post(
-      `${MAIN_BACKEND_URL}/api/withdrawals/${id}/status`,
-      { status: "approved" }, // Send the status in the body
-      {
-        headers: { 'x-admin-token': process.env.ADMIN_API_TOKEN }
-      }
-    );
-    res.status(axiosRes.status).json(axiosRes.data);
-  } catch (err) {
-    console.error("WITHDRAW APPROVE PROXY ERROR:", err.response?.data || err.message);
-    res.status(err.response?.status || 500).json({
-      message: 'Failed to approve withdrawal',
-      detail: err.response?.data?.message || err.message
-    });
-  }
+  const { id } = req.params;
+  try {
+    // Proxy this request to the MAIN backend
+    const axiosRes = await axios.put(
+      `${MAIN_BACKEND_URL}/api/withdrawals/${id}/status`,
+      { status: "approved" },
+      {
+        headers: { 'x-admin-token': process.env.ADMIN_API_TOKEN }
+      }
+    );
+    res.status(axiosRes.status).json(axiosRes.data);
+  } catch (err) {
+    console.error("WITHDRAW APPROVE PROXY ERROR:", err.response?.data || err.message);
+    res.status(err.response?.status || 500).json({
+      message: 'Failed to approve withdrawal',
+      detail: err.response?.data?.message || err.message
+    });
+  }
 });
 
 app.post('/api/admin/withdrawals/:id/deny', requireAdminAuth, async (req, res) => {
-  const { id } = req.params;
-  try {
-    // Proxy this request to the MAIN backend
-    const axiosRes = await axios.post(
-      `${MAIN_BACKEND_URL}/api/withdrawals/${id}/status`,
-      { status: "rejected" }, // Send the status in the body
-      {
-        headers: { 'x-admin-token': process.env.ADMIN_API_TOKEN }
-      }
-    );
-    res.status(axiosRes.status).json(axiosRes.data);
-  } catch (err) {
-    console.error("WITHDRAW DENY PROXY ERROR:", err.response?.data || err.message);
-    res.status(err.response?.status || 500).json({
-        message: 'Failed to deny withdrawal',
-        detail: err.response?.data?.message || err.message
-    });
-  }
+  const { id } = req.params;
+  try {
+    // Proxy this request to the MAIN backend - CHANGE POST TO PUT
+    const axiosRes = await axios.put(
+      `${MAIN_BACKEND_URL}/api/withdrawals/${id}/status`,
+      { status: "rejected" },
+      {
+        headers: { 'x-admin-token': process.env.ADMIN_API_TOKEN }
+      }
+    );
+    res.status(axiosRes.status).json(axiosRes.data);
+  } catch (err) {
+    console.error("WITHDRAW DENY PROXY ERROR:", err.response?.data || err.message);
+    res.status(err.response?.status || 500).json({
+      message: 'Failed to deny withdrawal',
+      detail: err.response?.data?.message || err.message
+    });
+  }
 });
 
 // TEMP DEBUG ROUTES (optional)
