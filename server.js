@@ -279,17 +279,16 @@ app.get(
 app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
   try {
     // Get users (NO frozen column in users!)
-    const usersResult = await pool.query(`
-  SELECT id, email, username, password, created_at, kyc_status, kyc_id_card, kyc_selfie
-  FROM users
-  ORDER BY id DESC
-`);
+    const usersResult = await pool.query(
+      `SELECT id, email, username, password, created_at, kyc_status, kyc_id_card, kyc_selfie FROM users ORDER BY id DESC`
+    );
 
     const users = usersResult.rows;
+
     // Get all balances (frozen is in user_balances!)
-    const balancesResult = await pool.query(`
-      SELECT user_id, coin, balance, frozen FROM user_balances
-    `);
+    const balancesResult = await pool.query(
+      `SELECT user_id, coin, balance, frozen FROM user_balances`
+    );
     const balances = balancesResult.rows;
 
     // Merge balances into users (USDT only)
