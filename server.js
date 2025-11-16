@@ -15,6 +15,7 @@ const upload = multer({ dest: path.join(__dirname, '../../novachain2-backend/upl
 const app = express();
 const PORT = 5001;
 const fs = require('fs');
+const FormData = require('form-data');
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@novachain.com';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'SuperSecret123';
@@ -219,58 +220,93 @@ app.post('/api/admin/change-password', requireAdminAuth, async (req, res) => {
   }
 });
 
-// --- RESTRICTED: Wallet Settings (Deposit Address) Routes ---
+// --- RESTRICTED: Wallet Settings (Deposit Address) Routes [PROXY] ---
 app.post(
-  '/api/admin/deposit-addresses',
-  requireAdminAuth,
-  requireSuperAdmin, // <-- superadmin only!
-  upload.any(),
-  async (req, res) => {
-    try {
-      const coins = ['USDT', 'BTC', 'ETH', 'TON', 'SOL', 'XRP'];
-      let updated = 0;
-      for (const coin of coins) {
-        const address = req.body[`${coin}_address`] || '';
-        let qr_url = null;
-        const qrFile = (req.files || []).find(f => f.fieldname === `${coin}_qr`);
-        if (qrFile) {
-          qr_url = `/uploads/${qrFile.filename}`;
-        }
-        if (address || qr_url) {
-          await pool.query(
-            `
-            INSERT INTO deposit_addresses (coin, address, qr_url, updated_at)
-            VALUES ($1, $2, $3, NOW())
-            ON CONFLICT (coin)
-            DO UPDATE SET address = $2, qr_url = COALESCE($3, deposit_addresses.qr_url), updated_at = NOW()
-            `,
-            [coin, address, qr_url]
-          );
-          updated++;
-        }
-      }
-      if (!updated) {
-        return res.status(400).json({ success: false, message: "No address or QR uploaded" });
-      }
-      res.json({ success: true, message: "Deposit wallet settings updated" });
-    } catch (err) {
-      res.status(500).json({ success: false, message: "Failed to save deposit settings", detail: err.message });
-    }
-  }
+  '/api/admin/deposit-addresses',
+  requireAdminAuth,
+  requireSuperAdmin, // <-- superadmin only!
+  upload.any(), // <-- Multer saves files temporarily
+  async (req, res) => {
+    try {
+      const form = new FormData();
+
+      // Append text fields from req.body
+      for (const key in req.body) {
+        form.append(key, req.body[key]);
+      }
+
+      // Append files from req.files
+      if (req.files && req.files.length > 0) {
+        for (const file of req.files) {
+          // Create a read stream from the temporarily uploaded file path
+          form.append(file.fieldname, fs.createReadStream(file.path), file.originalname);
+        }
+      }
+
+      // Proxy the request to the main backend
+      const axiosRes = await axios.post(
+        `${MAIN_BACKEND_URL}/api/admin/deposit-addresses`, // <-- PROXY
+        form,
+        {
+          headers: {
+            ...form.getHeaders(), // <-- Important for FormData
+            'x-admin-token': process.env.ADMIN_API_TOKEN // <-- Auth with main backend
+          }
+        }
+      );
+      
+      // Cleanup temp files
+      if (req.files && req.files.length > 0) {
+        for (const file of req.files) {
+          fs.unlink(file.path, (err) => { // Delete temp file
+            if(err) console.error("Error deleting temp file:", file.path, err);
+          });
+        }
+      }
+
+      // Send response from main backend back to admin frontend
+      res.status(axiosRes.status).json(axiosRes.data);
+
+    } catch (err) {
+      // Cleanup temp files even on error
+      if (req.files && req.files.length > 0) {
+        for (const file of req.files) {
+          fs.unlink(file.path, (e) => {
+            if(e) console.error("Error deleting temp file (on error):", file.path, e);
+          });
+        }
+      }
+      console.error("DEPOSIT PROXY ERROR:", err.response?.data || err.message);
+      res.status(err.response?.status || 500).json({ 
+        message: "Failed to proxy deposit settings", 
+        detail: err.response?.data?.message || err.message 
+      });
+    }
+  }
 );
 
 app.get(
-  '/api/admin/deposit-addresses',
-  requireAdminAuth,
-  requireSuperAdmin, // <-- superadmin only!
-  async (req, res) => {
-    try {
-      const result = await pool.query(`SELECT coin, address, qr_url FROM deposit_addresses`);
-      res.json(result.rows);
-    } catch (err) {
-      res.status(500).json({ message: "Failed to fetch deposit addresses" });
-    }
-  }
+  '/api/admin/deposit-addresses',
+  requireAdminAuth,
+  requireSuperAdmin, // <-- superadmin only!
+  async (req, res) => {
+    try {
+      // Proxy the GET request to the main backend
+      const axiosRes = await axios.get(
+        `${MAIN_BACKEND_URL}/api/admin/deposit-addresses`, // <-- PROXY
+        {
+          headers: { 'x-admin-token': process.env.ADMIN_API_TOKEN } // <-- Auth
+        }
+      );
+      res.json(axiosRes.data); // Send data back to admin frontend
+    } catch (err) {
+      console.error("GET DEPOSIT PROXY ERROR:", err.response?.data || err.message);
+      res.status(err.response?.status || 500).json({ 
+        message: "Failed to fetch deposit addresses",
+        detail: err.response?.data?.message || err.message
+      });
+    }
+  }
 );
 
 // Fetch users (full info for admin table)
