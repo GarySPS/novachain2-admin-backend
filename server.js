@@ -1,3 +1,5 @@
+//admin-backend>server.js
+
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
@@ -715,6 +717,38 @@ app.post('/kyc/admin/status', requireAdminAuth, async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: "DB error" });
+  }
+});
+
+// === PHONE USERS ADMIN ROUTES ===
+// Fetch all users who signed up with a phone number
+app.get('/api/admin/phone-users', requireAdminAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, username, email, created_at, verified 
+       FROM users 
+       WHERE email LIKE '%@phone.demo' 
+       ORDER BY id DESC`
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error("PHONE USERS ERROR:", err);
+    res.status(500).json({ message: 'Failed to fetch phone users', detail: err.message });
+  }
+});
+
+// Approve a phone user
+app.post('/api/admin/phone-users/:id/approve', requireAdminAuth, async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query(
+      `UPDATE users SET verified = true, otp = NULL WHERE id = $1 AND email LIKE '%@phone.demo'`,
+      [id]
+    );
+    res.json({ message: `Phone User #${id} approved successfully.` });
+  } catch (err) {
+    console.error("APPROVE PHONE USER ERROR:", err);
+    res.status(500).json({ message: 'Failed to approve user', detail: err.message });
   }
 });
 
