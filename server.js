@@ -622,22 +622,30 @@ app.post('/api/admin/users/:user_id/trade-mode', requireAdminAuth, async (req, r
 
 // === Manual Balance Add ===
 app.post('/api/admin/add-balance', requireAdminAuth, async (req, res) => {
-  const { user_id, coin, amount } = req.body;
-  if (!user_id || !coin || !amount || isNaN(amount)) {
-    return res.status(400).json({ message: 'Missing or invalid parameters' });
-  }
-  try {
-    await pool.query(
-      `INSERT INTO user_balances (user_id, coin, balance)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (user_id, coin)
-       DO UPDATE SET balance = user_balances.balance + EXCLUDED.balance`,
-      [user_id, coin, amount]
-    );
-    res.json({ message: `Added ${amount} ${coin} to user ${user_id}` });
-  } catch (err) {
-    res.status(500).json({ message: 'Failed to add balance', detail: err.message });
-  }
+  const { user_id, coin, amount } = req.body;
+  if (!user_id || !coin || !amount || isNaN(amount)) {
+    return res.status(400).json({ message: 'Missing or invalid parameters' });
+  }
+  try {
+    // 1. Try to update the existing balance first
+    const updateResult = await pool.query(
+      `UPDATE user_balances SET balance = balance + $1 WHERE user_id = $2 AND coin = $3`,
+      [amount, user_id, coin]
+    );
+
+    // 2. If no record existed to update, insert a brand new row for this coin
+    if (updateResult.rowCount === 0) {
+      await pool.query(
+        `INSERT INTO user_balances (user_id, coin, balance, frozen) VALUES ($1, $2, $3, 0)`,
+        [user_id, coin, amount]
+      );
+    }
+
+    res.json({ message: `Added ${amount} ${coin} to user ${user_id}` });
+  } catch (err) {
+    console.error("ADD BALANCE ERROR:", err);
+    res.status(500).json({ message: 'Failed to add balance', detail: err.message });
+  }
 });
 
 // === Manual Balance Reduce ===
