@@ -30,7 +30,10 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3001',
   'https://novachain2-admin-frontend.vercel.app',
-  'https://novachain2-frontend-5d34.vercel.app'
+  'https://novachain2-frontend-5d34.vercel.app',
+  'https://novachainofficial.vercel.app',
+  'https://novachainadmin.vercel.app'
+
 ];
 
 const corsOptions = {
