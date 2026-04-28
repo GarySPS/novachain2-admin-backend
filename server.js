@@ -701,35 +701,75 @@ app.post('/api/admin/freeze-balance', requireAdminAuth, async (req, res) => {
 });
 
 // === GET User Balances for Admin Table ===
+// === GET User Balances for Admin Table ===
 app.get('/api/admin/user/:id/balances', requireAdminAuth, async (req, res) => {
-  const { id } = req.params;
-  try {
-    const { rows } = await pool.query(
-      `SELECT coin, balance, frozen FROM user_balances WHERE user_id = $1 ORDER BY coin ASC`,
-      [id]
-    );
-    res.json({ balances: rows });
-  } catch (err) {
-//
-    res.status(500).json({ message: "Failed to fetch user balances", detail: err.message });
-  }
+  const { id } = req.params;
+  try {
+    const { rows } = await pool.query(
+      `SELECT coin, balance, frozen FROM user_balances WHERE user_id = $1 ORDER BY coin ASC`,
+      [id]
+    );
+    res.json({ balances: rows });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch user balances", detail: err.message });
+  }
 });
 
-// --- NEW: KYC approve/reject (endpoint used by AdminKYC UI)
-app.post('/kyc/admin/status', requireAdminAuth, async (req, res) => {
-  const { user_id, status } = req.body;
-  if (!user_id || !['approved', 'rejected', 'pending'].includes(status)) {
-    return res.status(400).json({ error: "Invalid input" });
-  }
-  try {
-    await pool.query(
-      `UPDATE users SET kyc_status = $1 WHERE id = $2`,
-      [status, user_id]
-    );
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: "DB error" });
-  }
+// ===== IMPERSONATION ROUTE - Login as User (KEEP THIS ONE ONLY) =====
+app.post('/api/admin/impersonate/:userId', requireAdminAuth, async (req, res) => {
+  const { userId } = req.params;
+  
+  try {
+    console.log(`Admin ${req.adminEmail} is attempting to impersonate user ${userId}`);
+    
+    const userResult = await pool.query(
+      'SELECT id, email, username FROM users WHERE id = $1',
+      [userId]
+    );
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    const user = userResult.rows[0];
+    
+    const userToken = jwt.sign(
+      { 
+        id: user.id, 
+        email: user.email,
+        username: user.username,
+        impersonatedBy: {
+          email: req.adminEmail,
+          role: req.adminRole,
+          timestamp: new Date().toISOString()
+        },
+        isImpersonation: true
+      },
+      JWT_SECRET,
+      { expiresIn: '2h' }
+    );
+    
+    console.log(`Impersonation successful: Admin ${req.adminEmail} -> User ${user.email}`);
+    
+    res.json({
+      success: true,
+      userToken: userToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username
+      },
+      message: `Successfully logged in as ${user.email}`
+    });
+    
+  } catch (error) {
+    console.error('Impersonation error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to impersonate user',
+      error: error.message 
+    });
+  }
 });
 
 // === PHONE USERS ADMIN ROUTES ===
