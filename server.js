@@ -55,40 +55,45 @@ app.use(express.json()); // Use JSON body parser
 
 // ===== NEW: Seed Admin Users from .env into DB =====
 const seedAdmins = async () => {
-  console.log('Checking admin accounts...');
-  const adminsToSeed = [
-    {
-      email: process.env.ADMIN_EMAIL,
-      password: process.env.ADMIN_PASSWORD,
-      role: 'superadmin'
-    },
-    {
-      email: process.env.SUPPORT_EMAIL,
-      password: process.env.SUPPORT_PASSWORD,
-      role: 'support'
-    }
-  ];
+  console.log('Checking admin accounts...');
+  const adminsToSeed = [
+    {
+      email: process.env.ADMIN_EMAIL,
+      password: process.env.ADMIN_PASSWORD,
+      role: 'superadmin'
+    },
+    {
+      email: process.env.SUPPORT_EMAIL,
+      password: process.env.SUPPORT_PASSWORD,
+      role: 'support'
+    }
+  ];
 
-  for (const admin of adminsToSeed) {
-    if (!admin.email || !admin.password) continue;
+  for (const admin of adminsToSeed) {
+    if (!admin.email || !admin.password) {
+        console.log(`Skipping seeding for ${admin.role} - Missing env credentials`);
+        continue;
+    }
 
-    try {
-      // Check if admin already exists
-      const { rows } = await pool.query('SELECT * FROM admin_users WHERE email = $1', [admin.email]);
-      
-      if (rows.length === 0) {
-        // Admin doesn't exist, create them
-        const password_hash = await bcrypt.hash(admin.password, BCRYPT_ROUNDS);
-        await pool.query(
-          'INSERT INTO admin_users (email, password_hash, role) VALUES ($1, $2, $3)',
-          [admin.email, password_hash, admin.role]
-        );
-        console.log(`Created admin user: ${admin.email}`);
-      }
-    } catch (err) {
-      console.error(`Failed to seed admin ${admin.email}:`, err.message);
-    }
-  }
+    try {
+      const { rows } = await pool.query('SELECT * FROM admin_users WHERE email = $1', [admin.email]);
+      
+      if (rows.length === 0) {
+        const password_hash = await bcrypt.hash(admin.password, BCRYPT_ROUNDS);
+        await pool.query(
+          'INSERT INTO admin_users (email, password_hash, role) VALUES ($1, $2, $3)',
+          [admin.email, password_hash, admin.role]
+        );
+        console.log(`Created admin user: ${admin.email}`);
+      } else {
+        // Optional: Update role if it exists but is wrong
+        await pool.query('UPDATE admin_users SET role = $1 WHERE email = $2', [admin.role, admin.email]);
+      }
+    } catch (err) {
+      console.error(`Failed to seed admin ${admin.email}:`, err.message);
+      // We don't throw the error here, so the server doesn't crash
+    }
+  }
 };
 // Run seeder on startup
 seedAdmins();
