@@ -632,25 +632,28 @@ app.post('/api/admin/users/:user_id/trade-mode', requireAdminAuth, async (req, r
 // === Manual Balance Add ===
 app.post('/api/admin/add-balance', requireAdminAuth, async (req, res) => {
   const { user_id, coin, amount } = req.body;
-  if (!user_id || !coin || !amount || isNaN(amount)) {
+  const numericAmount = Number(amount);
+
+  if (!user_id || !coin || !Number.isFinite(numericAmount) || numericAmount <= 0) {
     return res.status(400).json({ message: 'Missing or invalid parameters' });
   }
+
   try {
     // 1. Try to update the existing balance first
     const updateResult = await pool.query(
       `UPDATE user_balances SET balance = balance + $1 WHERE user_id = $2 AND coin = $3`,
-      [amount, user_id, coin]
+      [numericAmount, user_id, coin]
     );
 
     // 2. If no record existed to update, insert a brand new row for this coin
     if (updateResult.rowCount === 0) {
       await pool.query(
         `INSERT INTO user_balances (user_id, coin, balance, frozen) VALUES ($1, $2, $3, 0)`,
-        [user_id, coin, amount]
+        [user_id, coin, numericAmount]
       );
     }
 
-    res.json({ message: `Added ${amount} ${coin} to user ${user_id}` });
+    res.json({ message: `Added ${numericAmount} ${coin} to user ${user_id}` });
   } catch (err) {
     console.error("ADD BALANCE ERROR:", err);
     res.status(500).json({ message: 'Failed to add balance', detail: err.message });
@@ -659,22 +662,25 @@ app.post('/api/admin/add-balance', requireAdminAuth, async (req, res) => {
 
 // === Manual Balance Reduce ===
 app.post('/api/admin/user/:id/reduce-balance', requireAdminAuth, async (req, res) => {
-  const { id } = req.params;
-  const { coin, amount } = req.body;
-  if (!id || !coin || !amount || isNaN(amount)) {
-    return res.status(400).json({ message: 'Missing or invalid parameters' });
-  }
-  try {
+  const { id } = req.params;
+  const { coin, amount } = req.body;
+  const numericAmount = Number(amount);
+
+  if (!id || !coin || !Number.isFinite(numericAmount) || numericAmount <= 0) {
+    return res.status(400).json({ message: 'Missing or invalid parameters' });
+  }
+
+  try {
     const { rowCount } = await pool.query(
       `UPDATE user_balances
         SET balance = balance - $1
         WHERE user_id = $2 AND coin = $3 AND balance >= $1`,
-      [amount, id, coin]
+      [numericAmount, id, coin]
     );
     if (rowCount === 0) {
       return res.status(400).json({ message: "Insufficient balance or invalid user/coin" });
     }
-    res.json({ message: `Reduced ${amount} ${coin} from user ${id}` });
+    res.json({ message: `Reduced ${numericAmount} ${coin} from user ${id}` });
   } catch (err) {
     res.status(500).json({ message: 'Failed to reduce balance', detail: err.message });
   }
@@ -682,24 +688,27 @@ app.post('/api/admin/user/:id/reduce-balance', requireAdminAuth, async (req, res
 
 // === Freeze Balance ===
 app.post('/api/admin/freeze-balance', requireAdminAuth, async (req, res) => {
-  const { user_id, coin, amount } = req.body;
-  if (!user_id || !coin || !amount || isNaN(amount)) {
-    return res.status(400).json({ message: 'Missing or invalid parameters' });
-  }
-  try {
+  const { user_id, coin, amount } = req.body;
+  const numericAmount = Number(amount);
+
+  if (!user_id || !coin || !Number.isFinite(numericAmount) || numericAmount <= 0) {
+    return res.status(400).json({ message: 'Missing or invalid parameters' });
+  }
+
+  try {
     const { rowCount } = await pool.query(
       `UPDATE user_balances
        SET balance = balance - $1,
            frozen = COALESCE(frozen, 0) + $1
        WHERE user_id = $2 AND coin = $3 AND balance >= $1`,
-      [amount, user_id, coin]
+      [numericAmount, user_id, coin]
     );
 
     if (rowCount === 0) {
       return res.status(400).json({ message: "Insufficient balance or invalid user/coin" });
     }
 
-    res.json({ message: `Froze ${amount} ${coin} for user ${user_id}` });
+    res.json({ message: `Froze ${numericAmount} ${coin} for user ${user_id}` });
   } catch (err) {
     res.status(500).json({ message: 'Failed to freeze balance', detail: err.message });
   }
