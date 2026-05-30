@@ -671,19 +671,20 @@ app.post('/api/admin/user/:id/reduce-balance', requireAdminAuth, async (req, res
   }
 
   try {
-    const { rowCount } = await pool.query(
-      `UPDATE user_balances
-        SET balance = balance - $1
-        WHERE user_id = $2 AND coin = $3 AND balance >= $1`,
-      [numericAmount, id, coin]
-    );
-    if (rowCount === 0) {
-      return res.status(400).json({ message: "Insufficient balance or invalid user/coin" });
-    }
-    res.json({ message: `Reduced ${numericAmount} ${coin} from user ${id}` });
-  } catch (err) {
-    res.status(500).json({ message: 'Failed to reduce balance', detail: err.message });
-  }
+    const { rowCount } = await pool.query(
+      `UPDATE user_balances
+       SET balance = balance - CAST($1 AS numeric)
+       WHERE user_id = $2 AND coin = $3 AND balance >= CAST($1 AS numeric)`,
+      [numericAmount, id, coin]
+    );
+    if (rowCount === 0) {
+      return res.status(400).json({ message: "Insufficient balance or invalid user/coin" });
+    }
+    res.json({ message: `Reduced ${numericAmount} ${coin} from user ${id}` });
+  } catch (err) {
+    console.error("REDUCE BALANCE ERROR:", err);
+    res.status(500).json({ message: 'Failed to reduce balance', detail: err.message });
+  }
 });
 
 // === Freeze Balance ===
@@ -696,25 +697,54 @@ app.post('/api/admin/freeze-balance', requireAdminAuth, async (req, res) => {
   }
 
   try {
-    const { rowCount } = await pool.query(
-      `UPDATE user_balances
-       SET balance = balance - $1,
-           frozen = COALESCE(frozen, 0) + $1
-       WHERE user_id = $2 AND coin = $3 AND balance >= $1`,
-      [numericAmount, user_id, coin]
-    );
+    const { rowCount } = await pool.query(
+      `UPDATE user_balances
+       SET balance = balance - CAST($1 AS numeric),
+           frozen = COALESCE(frozen, 0) + CAST($1 AS numeric)
+       WHERE user_id = $2 AND coin = $3 AND balance >= CAST($1 AS numeric)`,
+      [numericAmount, user_id, coin]
+    );
 
-    if (rowCount === 0) {
-      return res.status(400).json({ message: "Insufficient balance or invalid user/coin" });
-    }
+    if (rowCount === 0) {
+      return res.status(400).json({ message: "Insufficient balance or invalid user/coin" });
+    }
 
-    res.json({ message: `Froze ${numericAmount} ${coin} for user ${user_id}` });
-  } catch (err) {
-    res.status(500).json({ message: 'Failed to freeze balance', detail: err.message });
-  }
+    res.json({ message: `Froze ${numericAmount} ${coin} for user ${user_id}` });
+  } catch (err) {
+    console.error("FREEZE ERROR:", err);
+    res.status(500).json({ message: 'Failed to freeze balance', detail: err.message });
+  }
 });
 
-// === GET User Balances for Admin Table ===
+// === Unfreeze Balance ===
+app.post('/api/admin/unfreeze-balance', requireAdminAuth, async (req, res) => {
+  const { user_id, coin, amount } = req.body;
+  const numericAmount = Number(amount);
+
+  if (!user_id || !coin || !Number.isFinite(numericAmount) || numericAmount <= 0) {
+    return res.status(400).json({ message: 'Missing or invalid parameters' });
+  }
+
+  try {
+    const { rowCount } = await pool.query(
+      `UPDATE user_balances
+       SET frozen = COALESCE(frozen, 0) - CAST($1 AS numeric),
+           balance = balance + CAST($1 AS numeric)
+       WHERE user_id = $2 AND coin = $3 AND COALESCE(frozen, 0) >= CAST($1 AS numeric)`,
+      [numericAmount, user_id, coin]
+    );
+
+    if (rowCount === 0) {
+      return res.status(400).json({ message: "Insufficient frozen balance or invalid user/coin" });
+    }
+
+    res.json({ message: `Unfroze ${numericAmount} ${coin} for user ${user_id}` });
+  } catch (err) {
+    console.error("UNFREEZE ERROR:", err);
+    res.status(500).json({ message: 'Failed to unfreeze balance', detail: err.message });
+  }
+});
+
 // === GET User Balances for Admin Table ===
 app.get('/api/admin/user/:id/balances', requireAdminAuth, async (req, res) => {
   const { id } = req.params;
