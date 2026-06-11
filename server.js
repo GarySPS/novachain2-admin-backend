@@ -835,20 +835,45 @@ app.get('/api/admin/phone-users', requireAdminAuth, async (req, res) => {
 
 // Approve a phone user
 app.post('/api/admin/phone-users/:id/approve', requireAdminAuth, async (req, res) => {
-  const { id } = req.params;
-  try {
-    await pool.query(
-      `UPDATE users SET verified = true, otp = NULL WHERE id = $1 AND email LIKE '%@phone.demo'`,
-      [id]
-    );
-    res.json({ message: `Phone User #${id} approved successfully.` });
-  } catch (err) {
-    console.error("APPROVE PHONE USER ERROR:", err);
-    res.status(500).json({ message: 'Failed to approve user', detail: err.message });
-  }
+  const { id } = req.params;
+  try {
+    await pool.query(
+      `UPDATE users SET verified = true, otp = NULL WHERE id = $1 AND email LIKE '%@phone.demo'`,
+      [id]
+    );
+    res.json({ message: `Phone User #${id} approved successfully.` });
+  } catch (err) {
+    console.error("APPROVE PHONE USER ERROR:", err);
+    res.status(500).json({ message: 'Failed to approve user', detail: err.message });
+  }
 });
 
+// === Reset User Password ===
+app.post('/api/admin/user/:id/reset-password', requireAdminAuth, async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Generate a random 8-character alphanumeric password
+    const newPassword = Math.random().toString(36).slice(-8);
+    const password_hash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
 
+    const { rowCount } = await pool.query(
+      `UPDATE users SET password = $1 WHERE id = $2`,
+      [password_hash, id]
+    );
+
+    if (rowCount === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Return the plain text password so the admin can copy it
+    res.json({ message: "Password reset successful", newPassword });
+  } catch (err) {
+    console.error("RESET PASSWORD ERROR:", err);
+    res.status(500).json({ message: 'Failed to reset password', detail: err.message });
+  }
+});
+
+// ALWAYS KEEP THIS AT THE VERY BOTTOM
 app.listen(PORT, () => {
-  console.log(`NovaChain Admin Backend running on port ${PORT}`);
+  console.log(`NovaChain Admin Backend running on port ${PORT}`);
 });
