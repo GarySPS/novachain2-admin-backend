@@ -120,39 +120,41 @@ function requireSuperAdmin(req, res, next) {
   next();
 }
 
-// ====== PROXY ROUTES (no change) ======
+// ====== PROXY ROUTES (UPDATED FOR DEBUGGING) ======
 app.get('/api/trades', requireAdminAuth, async (req, res) => {
-  try {
-    const r = await axios.get(`${MAIN_BACKEND_URL}/api/trades`, {
-      headers: { 'x-admin-token': process.env.ADMIN_API_TOKEN }
-    });
-    res.json(r.data);
-  } catch (err) {
-    console.error("TRADES PROXY ERROR:", err.response?.data || err.message, err.response?.status || "");
-    res.status(500).json({ message: 'Failed to fetch trades', detail: err.message });
-  }
+  try {
+    const r = await axios.get(`${MAIN_BACKEND_URL}/api/trades`, {
+      headers: { 'x-admin-token': process.env.ADMIN_API_TOKEN }
+    });
+    res.json(r.data);
+  } catch (err) {
+    console.error("TRADES PROXY ERROR:", err.response?.data || err.message);
+    res.status(err.response?.status || 500).json({ message: 'Failed to fetch trades', detail: err.response?.data || err.message });
+  }
 });
 
 app.get('/api/deposits', requireAdminAuth, async (req, res) => {
-  try {
-    const r = await axios.get(`${MAIN_BACKEND_URL}/api/deposits`, {
-      headers: { 'x-admin-token': process.env.ADMIN_API_TOKEN }
-    });
-    res.json(r.data);
-  } catch (err) {
-    res.status(500).json({ message: 'Failed to fetch deposits', detail: err.message });
-  }
+  try {
+    const r = await axios.get(`${MAIN_BACKEND_URL}/api/deposits`, {
+      headers: { 'x-admin-token': process.env.ADMIN_API_TOKEN }
+    });
+    res.json(r.data);
+  } catch (err) {
+    console.error("DEPOSITS PROXY ERROR:", err.response?.data || err.message);
+    res.status(err.response?.status || 500).json({ message: 'Failed to fetch deposits', detail: err.response?.data || err.message });
+  }
 });
 
 app.get('/api/withdrawals', requireAdminAuth, async (req, res) => {
-  try {
-    const r = await axios.get(`${MAIN_BACKEND_URL}/api/withdrawals`, {
-      headers: { 'x-admin-token': process.env.ADMIN_API_TOKEN }
-    });
-    res.json(r.data);
-  } catch (err) {
-    res.status(500).json({ message: 'Failed to fetch withdrawals', detail: err.message });
-  }
+  try {
+    const r = await axios.get(`${MAIN_BACKEND_URL}/api/withdrawals`, {
+      headers: { 'x-admin-token': process.env.ADMIN_API_TOKEN }
+    });
+    res.json(r.data);
+  } catch (err) {
+    console.error("WITHDRAWALS PROXY ERROR:", err.response?.data || err.message);
+    res.status(err.response?.status || 500).json({ message: 'Failed to fetch withdrawals', detail: err.response?.data || err.message });
+  }
 });
 
 // ===== NORMAL ADMIN CONTROLS (NOT PROXIED) =====
@@ -835,20 +837,45 @@ app.get('/api/admin/phone-users', requireAdminAuth, async (req, res) => {
 
 // Approve a phone user
 app.post('/api/admin/phone-users/:id/approve', requireAdminAuth, async (req, res) => {
-  const { id } = req.params;
-  try {
-    await pool.query(
-      `UPDATE users SET verified = true, otp = NULL WHERE id = $1 AND email LIKE '%@phone.demo'`,
-      [id]
-    );
-    res.json({ message: `Phone User #${id} approved successfully.` });
-  } catch (err) {
-    console.error("APPROVE PHONE USER ERROR:", err);
-    res.status(500).json({ message: 'Failed to approve user', detail: err.message });
-  }
+  const { id } = req.params;
+  try {
+    await pool.query(
+      `UPDATE users SET verified = true, otp = NULL WHERE id = $1 AND email LIKE '%@phone.demo'`,
+      [id]
+    );
+    res.json({ message: `Phone User #${id} approved successfully.` });
+  } catch (err) {
+    console.error("APPROVE PHONE USER ERROR:", err);
+    res.status(500).json({ message: 'Failed to approve user', detail: err.message });
+  }
 });
 
+// === Reset User Password ===
+app.post('/api/admin/user/:id/reset-password', requireAdminAuth, async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Generate a random 8-character alphanumeric password
+    const newPassword = Math.random().toString(36).slice(-8);
+    const password_hash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
 
+    const { rowCount } = await pool.query(
+      `UPDATE users SET password = $1 WHERE id = $2`,
+      [password_hash, id]
+    );
+
+    if (rowCount === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Return the plain text password so the admin can copy it
+    res.json({ message: "Password reset successful", newPassword });
+  } catch (err) {
+    console.error("RESET PASSWORD ERROR:", err);
+    res.status(500).json({ message: 'Failed to reset password', detail: err.message });
+  }
+});
+
+// ALWAYS KEEP THIS AT THE VERY BOTTOM
 app.listen(PORT, () => {
-  console.log(`NovaChain Admin Backend running on port ${PORT}`);
+  console.log(`NovaChain Admin Backend running on port ${PORT}`);
 });
