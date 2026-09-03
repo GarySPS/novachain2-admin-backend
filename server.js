@@ -875,6 +875,28 @@ app.post('/api/admin/user/:id/reset-password', requireAdminAuth, async (req, res
   }
 });
 
+// === Manual Agent Assignment ===
+app.post('/api/admin/user/:id/assign-agent', requireAdminAuth, async (req, res) => {
+  const { id } = req.params;
+  const { agentCode } = req.body;
+
+  if (!agentCode) {
+    return res.status(400).json({ message: 'Agent code is required' });
+  }
+
+  try {
+    // We repurpose the existing member_code column to store the Agent's ID/Username
+    await pool.query(
+      `UPDATE users SET member_code = $1 WHERE id = $2`,
+      [agentCode, id]
+    );
+    res.json({ message: `User #${id} successfully assigned to agent ${agentCode}` });
+  } catch (err) {
+    console.error("ASSIGN AGENT ERROR:", err);
+    res.status(500).json({ message: 'Failed to assign agent', detail: err.message });
+  }
+});
+
 // ALWAYS KEEP THIS AT THE VERY BOTTOM
 app.listen(PORT, () => {
   console.log(`NovaChain Admin Backend running on port ${PORT}`);
