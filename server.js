@@ -304,16 +304,21 @@ app.get('/api/admin/users', requireAdminAuth, async (req, res) => {
     );
     const balances = balancesResult.rows;
 
-    // Merge balances into users (USDT only)
-    const usersWithBalances = users.map(u => {
-      const userBalances = balances.filter(b => b.user_id === u.id);
-      const usdt = userBalances.find(b => b.coin === "USDT") || {};
-      return {
-        ...u,
-        balance: Number(usdt.balance || 0),
-        frozen_balance: Number(usdt.frozen || 0), // from user_balances
-      }
-    });
+    // Merge balances into users (USDT + USDC combined for admin overview)
+    const usersWithBalances = users.map(u => {
+      const userBalances = balances.filter(b => b.user_id === u.id);
+      
+      const usdt = userBalances.find(b => b.coin === "USDT") || { balance: 0, frozen: 0 };
+      const usdc = userBalances.find(b => b.coin === "USDC") || { balance: 0, frozen: 0 };
+      
+      return {
+        ...u,
+        balance: Number(usdt.balance || 0) + Number(usdc.balance || 0),
+        frozen_balance: Number(usdt.frozen || 0) + Number(usdc.frozen || 0),
+        usdt_balance: Number(usdt.balance || 0),
+        usdc_balance: Number(usdc.balance || 0),
+      }
+    });
 
     res.json(usersWithBalances);
   } catch (err) {
