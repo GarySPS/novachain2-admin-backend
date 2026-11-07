@@ -5,7 +5,6 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const axios = require('axios');
 require('dotenv').config();
-console.log("LOADED ADMIN_PASSWORD:", process.env.ADMIN_PASSWORD);
 const bcrypt = require('bcrypt');
 const pool = require('./db');
 const path = require('path');
@@ -26,14 +25,14 @@ const userAutoWin = {};
 let AUTO_WINNING = true;
 
 const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:5173',
-  'http://localhost:3001',
-  'https://novachain2-admin-frontend.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:3001',
+  'https://novachain2-admin-frontend.vercel.app',
   'https://novachain2-frontend-5d34.vercel.app',
   'https://novachainofficial.vercel.app',
-  'https://novachainadmin.vercel.app'
-
+  'https://novachainadmin.vercel.app',
+  'https://admin.novachain.digital'
 ];
 
 const corsOptions = {
