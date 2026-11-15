@@ -144,6 +144,28 @@ app.get('/api/deposits', requireAdminAuth, async (req, res) => {
   }
 });
 
+// Authenticated proxy for MXN receipt previews; never expose the main backend admin secret to the browser.
+app.get('/api/deposits/:id/receipt', requireAdminAuth, async (req, res) => {
+  const { id } = req.params;
+  if (!/^[0-9]+$/.test(id)) {
+    return res.status(400).json({ error: 'Invalid deposit ID' });
+  }
+
+  try {
+    const response = await axios.get(`${MAIN_BACKEND_URL}/api/deposits/${id}/receipt`, {
+      headers: { 'x-admin-token': process.env.ADMIN_API_TOKEN },
+      timeout: 15000,
+    });
+    res.set('Cache-Control', 'no-store');
+    return res.json(response.data);
+  } catch (err) {
+    console.error('MXN receipt proxy error:', err.response?.status || err.message);
+    return res.status(err.response?.status || 500).json({
+      error: err.response?.data?.error || 'Unable to load receipt',
+    });
+  }
+});
+
 app.get('/api/withdrawals', requireAdminAuth, async (req, res) => {
   try {
     const r = await axios.get(`${MAIN_BACKEND_URL}/api/withdrawals`, {
