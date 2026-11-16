@@ -249,6 +249,48 @@ app.post('/api/admin/change-password', requireAdminAuth, async (req, res) => {
   }
 });
 
+// Superadmin MXN configuration proxy. The browser never receives the server API token.
+app.get('/api/admin/mxn-settings', requireAdminAuth, requireSuperAdmin, async (req, res) => {
+  if (!process.env.ADMIN_API_TOKEN) {
+    return res.status(503).json({ error: 'Internal payment settings unavailable.' });
+  }
+  try {
+    const response = await axios.get(`${MAIN_BACKEND_URL}/api/admin/mxn-settings`, {
+      headers: { 'x-admin-token': process.env.ADMIN_API_TOKEN },
+      timeout: 15000,
+    });
+    res.set('Cache-Control', 'no-store');
+    return res.json(response.data);
+  } catch (error) {
+    console.error('MXN settings read proxy error:', error.response?.status || error.message);
+    return res.status(error.response?.status || 502).json({
+      error: error.response?.data?.error || 'Unable to load MXN settings.',
+    });
+  }
+});
+
+app.put('/api/admin/mxn-settings', requireAdminAuth, requireSuperAdmin, async (req, res) => {
+  if (!process.env.ADMIN_API_TOKEN) {
+    return res.status(503).json({ error: 'Internal payment settings unavailable.' });
+  }
+  try {
+    const response = await axios.put(`${MAIN_BACKEND_URL}/api/admin/mxn-settings`, req.body, {
+      headers: {
+        'x-admin-token': process.env.ADMIN_API_TOKEN,
+        'Content-Type': 'application/json',
+      },
+      timeout: 15000,
+    });
+    res.set('Cache-Control', 'no-store');
+    return res.json(response.data);
+  } catch (error) {
+    console.error('MXN settings update proxy error:', error.response?.status || error.message);
+    return res.status(error.response?.status || 502).json({
+      error: error.response?.data?.error || 'Unable to update MXN settings.',
+    });
+  }
+});
+
 // --- RESTRICTED: Wallet Settings (Deposit Address) Routes [PROXY] ---
 app.post(
   '/api/admin/deposit-addresses',
